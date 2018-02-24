@@ -1,5 +1,5 @@
 # Security-Minded Mindfulness
 
-### Code | Musings | Tutorials | WriteUps
+Code | Musings | Tutorials | WriteUps
 --- | --- | --- | ---
 
