@@ -3,8 +3,6 @@ title: Intro
 layout: post
 ---
 
-# Introduction
-
 I'm a security engineer specializing in building network security tools.
 
 

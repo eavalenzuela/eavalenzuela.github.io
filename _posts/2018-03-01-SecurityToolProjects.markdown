@@ -3,8 +3,6 @@ layout: post
 title: SecurityToolProjects
 ---
 
-# Security Tool Projects
-
 Over the past 4 months, I've worked on a number of security tools for work, mainly focused around packet-level functions.
 
 #### asker.py
