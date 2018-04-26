@@ -55,23 +55,23 @@ Firing up python, the augmented scapy can be imported from the folder above /sca
 
 You can then begin constructing basic RPCCall packets like so:
 
-![pkt_build](../images/pkt_build.png)
+![pkt_build]({{site.url}}/assets/images/pkt_build.png)
 
 Note that the Ether layer is loaded, but it left for automatic initialization by scapy, and no fields are specified.
 
 The request can then be sent, and a reponse listened for. Because the Ether layer was used, sendp/srp/srp1 must be used for sending rather than send/sr/sr1.
 
-![pkt_sr](../images/pkt_sr.png)
+![pkt_sr]({{site.url}}/assets/images/pkt_sr.png)
 
 We can see that a response was recieved, even if it's not easy to tell what the response means.
 
 Looking in Wireshark, we can see that the sent packet was indeed recognized as a RPC portmap call, and that the response recieved is an RPC portmap reply.
 
-![ws_pkts](../images/ws_pkts.png)
+![ws_pkts]({{site.url}}/assets/images/ws_pkts.png)
 
 We can then further dive into the reply, and see what services the portmap service notified us of.
 
-![ws_reply](../images/ws_reply.png)
+![ws_reply]({{site.url}}/assets/images/ws_reply.png)
 
 ## Final Thoughs
 
