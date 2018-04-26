@@ -9,8 +9,9 @@ A custom-built(but very bare-bones) extension for [scapy](https://github.com/sec
 
 ## Overview
 
-This was made necessary because the existing RPC tools(chiefly rpcinfo) do not have support for modifying low-level settings like the source port.
-Because of an anomalous IDS alert indicating that an RPC portmap request had been made against our servers, along with existing Qualys tickets indicating a UDP source-port firewall bypass issue, it was necessary to verify whether these portmaps were actually returning data to external callers.
+This was made necessary because the existing RPC tools(chiefly rpcinfo) do not have support for modifying low-level settings like the source port, and because of an alert indicating that an RPC portmap request had been made against our servers, and I wanted to verify this wasn't returning any data(it wasn't... but it was a great learning opportunity!).
+
+## [The Tool](https://github.com/eavalenzuela/scapy_RPC_layer)
 
 ## Build Methodology
 
