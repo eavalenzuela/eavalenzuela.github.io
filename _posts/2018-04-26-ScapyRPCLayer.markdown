@@ -1,6 +1,6 @@
 ---
 layout: post
-title: ScaypRPCLayer
+title: Scapy_RPC_Layer
 ---
 
 # RPC Layer for Scapy

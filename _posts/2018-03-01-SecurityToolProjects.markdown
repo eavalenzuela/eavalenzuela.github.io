@@ -1,6 +1,6 @@
 ---
 layout: post
-title: SecurityToolProjects
+title: Security_Tool_Projects
 ---
 
 Over the past 4 months, I've worked on a number of security tools for work, mainly focused around packet-level functions.
