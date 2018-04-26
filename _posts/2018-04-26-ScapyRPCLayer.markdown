@@ -1,3 +1,8 @@
+---
+layout: post
+title: ScaypRPCLayer
+---
+
 # RPC Layer for Scapy
 
 A custom-built(but very bare-bones) extension for [scapy](https://github.com/secdev/scapy), this layer allows you to send simple RPC packets in a structured way.
