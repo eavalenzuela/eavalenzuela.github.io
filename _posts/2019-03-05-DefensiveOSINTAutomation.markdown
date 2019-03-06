@@ -3,8 +3,6 @@ layout: post
 title: Defensive OSINT Automation
 ---
 
-# Defensive OSINT Automation
-
 ## Or, "Stop paying people to Google for you, and write some Python!"
 
 #### Impetus
@@ -46,7 +44,7 @@ This module was an interesting one, since it came about from seeing people discu
 
 Thankfully, Google has a set of pseudo-deprecated tools for creating and querying a Custom Search Engine (CSE), which allows you to prioritize searches on specific sites in addition to the web at large, and having an API to do it with.
 
-Paired with a list of 'search phrase | risk rating' pairs fed to it, you have cheap and simple (and basic) monitoring for public discussion.
+Paired with a list of 'search phrase + risk rating' pairs fed to it, you have cheap and simple (and basic) monitoring for public discussion.
 
 ### Backend Database
 
