@@ -1,0 +1,30 @@
+---
+layout: post
+title: Asker
+---
+
+### Asker.py
+#### A blueteam's counterpart for Responder.py
+
+Note, I started writing this post in June of last year. It's been a slow process.
+
+I first began building asker as a way to learn to use scapy in an actual tool (where previously I'd only been using it manually in the python terminal). Scapy's excellent library of packet layer templates already featured an LLMNR layer, meaning I wouldn't have the headache of building another custom one, and LLMNR is significantly more complex than RPC in its basic syntax(even if RPC is undeniably larger in scope).
+I initially began building it to be multi-threaded(and to be fair, I haven't entirely cleaned up some of the structures intended for that), but in the end I opted to use multiprocessing.ThreadPool to do the tiny bit which needed to run concurrently.
+
+After reading through the RFC I was able to construct a simple LLMNR request with scapy, and verify that Responder detected and would respond to it.
+
+At this point the ability to read from a file of constructed false names was added, and testing was done to ensure that queries were formatted the same as other legitimate LLMNR requests on the wire.
+
+The ability to see the responses was not implemented at this point, because scapy's sniff() function took too long to start, even if launched immediately after the request packet was sent. Setting this aside for the moment(since the 'valid' Responder response was visible in Wireshark, so we knew that worked), focus was put instead on making the packet creation variables dynamic(i.e. non-hardcoded IPs, etc). The ability to also randomize the source IP was also added at this time. This makes it possible to further obscure the presence of a honeypot machine from attackers, and will work if the traffic is proxied(or if asker is deployed on the gateway device).
+
+Later on, I realized I could just start the sniff() function before sending the packet, since we know nothing out there will be asking for the bogus hostnames. As a side-effect, this lets us operate a separate, standalone sniffer application anywhere that can see all the traffic, which is convenient in that you don't have to have all of your bogus requests coming from the same host again and again. Heck, just run it on everything!
+
+I'm not going to do a deep-dive of the code, since it's actually pretty short, and if I do this it'll be another 9 months until I'm happy with it. Also, the actual GitHub readme page has cool Asciinema graphics I made. Check it out!
+https://github.com/eavalenzuela/asker
+
+
+
+
+
+
+
