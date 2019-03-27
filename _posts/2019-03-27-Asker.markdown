@@ -3,7 +3,7 @@ layout: post
 title: Asker
 ---
 
-### Asker.py
+### [Asker.py](https://github.com/eavalenzuela/asker)
 #### A blueteam's counterpart for Responder.py
 
 Note, I started writing this post in June of last year. It's been a slow process.
@@ -20,7 +20,7 @@ The ability to see the responses was not implemented at this point, because scap
 Later on, I realized I could just start the sniff() function before sending the packet, since we know nothing out there will be asking for the bogus hostnames. As a side-effect, this lets us operate a separate, standalone sniffer application anywhere that can see all the traffic, which is convenient in that you don't have to have all of your bogus requests coming from the same host again and again. Heck, just run it on everything!
 
 I'm not going to do a deep-dive of the code, since it's actually pretty short, and if I do this it'll be another 9 months until I'm happy with it. Also, the actual GitHub readme page has cool Asciinema graphics I made. Check it out!
-https://github.com/eavalenzuela/asker
+[https://github.com/eavalenzuela/asker]()
 
 
 
