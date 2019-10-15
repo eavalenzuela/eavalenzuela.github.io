@@ -24,6 +24,15 @@ The initial modules I built were:
 * External service monitor (w/nmap)
 * News/forum/blog monitor (w/Google Custom Search Engine [CSE])
 
+##### Update, Oct 2019: There are now 2 additional modules:
+
+* Paste-site (specifically, Pastebin for now) monitoring
+* Subdomain monitoring
+
+Subdomain monitoring is accomplished with SecurityTrail's subdomain API endpoint, and is just intended to give us a head's-up if new subdomain DNS records are created.
+
+Pastebin monitoring uses Pastebin's scraping API. It checks the content of each paste against a list of keywords and regex patterns, and performs actions based on per-expression settings. For example, certain keywords (e.g. the company name) will always be downloaded, so they can be reviewed without worrying about the paste being removed. In addition to company-related queries, several general queries are useful, to keep your finger on the pulse.
+
 ### GitHub Monitor
 
 This uses the GitHub API to enumerate a list of organization-joined user accounts(non-personal accounts), and then polls their public account API info to ensure there are not any unauthorized public repositories. I super recommend this if you use GitHub, since you cannot prevent user accounts from creating repos. Some people seem to think this can't happen by accident(and of course, this won't stop a user intentionally trying to post code publicly), but yes, sometimes even experienced devs will make a repo public without meaning to.
