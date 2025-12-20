@@ -129,10 +129,15 @@ def correlate(doc1: Dict[str, Dict[str, str]], doc2: Dict[str, Dict[str, str]]) 
 
 # --- PDF searching / extraction ---
 SECTION_RE = re.compile(r"^\s*(\d+(?:\.\d+){3})\b")
-def split_lines(page_text: str) -> List[str]:
-    # Keep reasonably clean lines
+
+def split_lines_preserve(page_text: str) -> List[str]:
+    """
+    Split into lines but preserve the original line text as much as possible.
+    Only strip trailing whitespace to avoid mangling code blocks and wraps.
+    """
     lines = (page_text or "").splitlines()
-    return [re.sub(r"\s+", " ", ln).strip() for ln in lines if ln.strip()]
+    # Keep blank lines out, but don't collapse internal spaces
+    return [ln.rstrip() for ln in lines if ln.strip()]
 
 def find_requirement_line(pages_lines: List[List[str]], search_text: str) -> Optional[Tuple[int, int, str]]:
     """
@@ -160,12 +165,12 @@ def extract_audit_block(
 ) -> Optional[str]:
     """
     Starting beneath the matched requirement line, scan forward for:
-      - 'Audit:' marker (may appear on same line as other text, but typically below)
+      - 'Audit:' marker
       - Capture everything after 'Audit:' until 'Remediation:' (exclusive)
-    Spans pages if needed.
+    Preserves newlines in the captured block.
     """
     capturing = False
-    chunks: List[str] = []
+    out_lines: List[str] = []
 
     for pi in range(start_page, len(pages_lines)):
         lines = pages_lines[pi]
@@ -174,44 +179,46 @@ def extract_audit_block(
         for li in range(li0, len(lines)):
             ln = lines[li]
 
-            # If not yet capturing, look for Audit:
             if not capturing:
                 m_a = re.search(r"\bAudit:\b", ln, flags=re.IGNORECASE)
-                if m_a:
-                    capturing = True
-                    after = ln[m_a.end():].strip()
-                    # If Remediation appears on same line, end immediately
-                    m_r = re.search(r"\bRemediation:\b", after, flags=re.IGNORECASE)
-                    if m_r:
-                        before = after[:m_r.start()].strip()
-                        if before:
-                            chunks.append(before)
-                        return " ".join(chunks).strip() or None
-                    if after:
-                        chunks.append(after)
+                if not m_a:
+                    continue
+
+                capturing = True
+                # capture anything after "Audit:" on the same line
+                after = ln[m_a.end():]
+                # if "Remediation:" appears on same line, stop immediately
+                m_r_same = re.search(r"\bRemediation:\b", after, flags=re.IGNORECASE)
+                if m_r_same:
+                    piece = after[:m_r_same.start()].strip()
+                    if piece:
+                        out_lines.append(piece)
+                    return "\n".join(out_lines).rstrip() or None
+
+                after = after.strip()
+                if after:
+                    out_lines.append(after)
                 continue
 
-            # If capturing, stop at Remediation:
+            # capturing mode
             m_r = re.search(r"\bRemediation:\b", ln, flags=re.IGNORECASE)
             if m_r:
-                before = ln[:m_r.start()].strip()
-                if before:
-                    chunks.append(before)
-                return " ".join(chunks).strip() or None
+                before = ln[:m_r.start()].rstrip()
+                if before.strip():
+                    out_lines.append(before)
+                return "\n".join(out_lines).rstrip() or None
 
-            chunks.append(ln)
+            out_lines.append(ln.rstrip())
 
-    return " ".join(chunks).strip() or None
+    return "\n".join(out_lines).rstrip() or None
 
 def enrich_from_pdf(reqs: List[Requirement], pdf_path: str) -> None:
     pages_text = extract_pdf_pages_text(pdf_path)
-    pages_lines = [split_lines(t) for t in pages_text]
+    pages_lines = [split_lines_preserve(t) for t in pages_text]
 
     for r in reqs:
-        # Step 4b uses the modified description (already “Ensure …”)
         hit = find_requirement_line(pages_lines, r.description)
         if not hit:
-            # Not found; leave section/audit_info as None
             continue
 
         page_i, line_i, line_txt = hit
