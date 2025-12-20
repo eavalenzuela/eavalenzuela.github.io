@@ -160,60 +160,61 @@ def split_lines_preserve(page_text: str) -> List[str]:
 def find_requirement_line(
     pages_lines: List[List[str]],
     search_text: str,
-    debug_id: str = ""
+    debug_label: str = ""
 ) -> Optional[Tuple[int, int, str]]:
     """
-    More tolerant line search: uses normalized contains.
+    Find the FIRST header line that:
+      - starts with a section number (#.#.# or #.#.#.#)
+      - contains search_text (normalized contains)
+    This avoids accidentally matching generic 'Ensure' text elsewhere.
     """
     needle_raw = (search_text or "").strip()
     if not needle_raw:
         return None
-
     needle = normalize_for_contains(needle_raw)
 
     for pi, lines in enumerate(pages_lines):
         for li, ln in enumerate(lines):
+            sec = is_control_header(ln)
+            if not sec:
+                continue  # only match real control header lines
             if needle in normalize_for_contains(ln):
+                logging.debug("[%s] Header match at p%d l%d (%s): %s",
+                              debug_label, pi + 1, li + 1, sec, ln)
                 return (pi, li, ln)
+
     return None
 
 def extract_section_number(line: str) -> Optional[str]:
     m = SECTION_RE.match(line or "")
     return m.group(1) if m else None
 
-def extract_audit_block(
+def is_control_header(line: str) -> Optional[str]:
+    """
+    Returns the section number if line looks like a control header
+    (starts with 3- or 4-part section number). Else None.
+    """
+    return extract_section_number(line)
+
+def extract_audit_block_scoped(
     pages_lines: List[List[str]],
     start_page: int,
     start_line: int,
-    debug_label: str = "",
-    debug_window_lines: int = 40,
+    header_line: str,
+    debug_label: str = ""
 ) -> Optional[str]:
     """
-    Scan forward (starting below the requirement title line):
-      - Find 'Audit:' marker
-      - Capture everything until 'Remediation:' marker
-    Preserves newlines.
-    Adds debug logs to explain WHY it didn't capture.
+    Extract Audit: .. Remediation: ONLY within this control.
+    We stop scanning if we reach the next control header (different section).
     """
+    current_section = extract_section_number(header_line)
+    if not current_section:
+        logging.warning("[%s] No section number found in matched header line; cannot scope audit.", debug_label)
+        return None
+
     capturing = False
     out_lines: List[str] = []
-    audit_loc: Optional[Tuple[int, int]] = None
-
-    # Debug: log a small window of lines after the requirement header
-    if debug_window_lines > 0:
-        preview = []
-        remaining = debug_window_lines
-        for pi in range(start_page, len(pages_lines)):
-            li0 = start_line + 1 if pi == start_page else 0
-            for li in range(li0, len(pages_lines[pi])):
-                preview.append(f"p{pi+1} l{li+1}: {pages_lines[pi][li]}")
-                remaining -= 1
-                if remaining <= 0:
-                    break
-            if remaining <= 0:
-                break
-        logging.debug("[%s] Preview lines after requirement header:\n%s",
-                      debug_label, "\n".join(preview))
+    audit_found = False
 
     for pi in range(start_page, len(pages_lines)):
         lines = pages_lines[pi]
@@ -222,24 +223,33 @@ def extract_audit_block(
         for li in range(li0, len(lines)):
             ln = lines[li]
 
+            # STOP condition: next control header begins (different section)
+            next_sec = is_control_header(ln)
+            if next_sec and next_sec != current_section:
+                if not audit_found:
+                    logging.warning("[%s] Reached next control header (%s) before finding Audit: for section %s",
+                                    debug_label, next_sec, current_section)
+                    return None
+                # If we started capturing but never found Remediation: before next header,
+                # return what we have rather than stealing the next control's content.
+                logging.warning("[%s] Reached next control header (%s) before finding Remediation:; returning partial Audit for %s",
+                                debug_label, next_sec, current_section)
+                return "\n".join(out_lines).rstrip() or None
+
             if not capturing:
                 m_a = AUDIT_RE.search(ln)
                 if not m_a:
                     continue
-
                 capturing = True
-                audit_loc = (pi, li)
-                # capture anything after "Audit:" on the same line
-                after = ln[m_a.end():].strip()
+                audit_found = True
 
-                # If Remediation is on same line (rare), stop immediately
+                after = ln[m_a.end():].strip()
+                # handle weird same-line Remediation:
                 m_r_same = REMEDIATION_RE.search(after)
                 if m_r_same:
                     before = after[:m_r_same.start()].strip()
                     if before:
                         out_lines.append(before)
-                    logging.debug("[%s] Audit and Remediation on same line at p%d l%d",
-                                  debug_label, pi+1, li+1)
                     return "\n".join(out_lines).rstrip() or None
 
                 if after:
@@ -252,19 +262,17 @@ def extract_audit_block(
                 before = ln[:m_r.start()].rstrip()
                 if before.strip():
                     out_lines.append(before)
-                logging.debug("[%s] Captured Audit block from p%d l%d to p%d l%d",
-                              debug_label, audit_loc[0]+1, audit_loc[1]+1, pi+1, li+1)
                 return "\n".join(out_lines).rstrip() or None
 
             out_lines.append(ln.rstrip())
 
-    # If we found Audit but not Remediation, return what we got (and warn)
-    if audit_loc:
-        logging.warning("[%s] Found Audit: at p%d l%d but did not find Remediation:. Returning partial audit block.",
-                        debug_label, audit_loc[0]+1, audit_loc[1]+1)
+    # end of document
+    if audit_found:
+        logging.warning("[%s] Found Audit: for %s but never found Remediation: before EOF; returning partial",
+                        debug_label, current_section)
         return "\n".join(out_lines).rstrip() or None
 
-    logging.warning("[%s] Did not find Audit: marker after requirement header.", debug_label)
+    logging.warning("[%s] Did not find Audit: for section %s before EOF", debug_label, current_section)
     return None
 
 def debug_context(pages_lines: List[List[str]], page_i: int, line_i: int, radius: int = 6) -> str:
@@ -347,7 +355,13 @@ def enrich_from_pdf(reqs: List[Requirement], pdf_path: str, debug: bool = False)
             else:
                 logging.debug("[%s] Did NOT find Remediation: within scan window after match.", label)
 
-        r.audit_info = extract_audit_block(pages_lines, page_i, line_i, debug_label=label)
+        r.audit_info = extract_audit_block_scoped(
+            pages_lines,
+            page_i,
+            line_i,
+            header_line=line_txt,
+            debug_label=f"{r.id} | {r.name} | {r.section or '?'}"
+        )
 
 # --- Output ---
 def write_json(reqs: List[Requirement], out_json: str) -> None:
