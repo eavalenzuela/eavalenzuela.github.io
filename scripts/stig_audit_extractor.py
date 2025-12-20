@@ -6,6 +6,8 @@ import re
 import sys
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
+import logging
+from typing import Iterable
 
 # --- PDF text extraction (prefer PyMuPDF; fallback to pdfplumber) ---
 def extract_pdf_pages_text(pdf_path: str) -> List[str]:
@@ -128,7 +130,21 @@ def correlate(doc1: Dict[str, Dict[str, str]], doc2: Dict[str, Dict[str, str]]) 
     return reqs
 
 # --- PDF searching / extraction ---
-SECTION_RE = re.compile(r"^\s*(\d+(?:\.\d+){3})\b")
+# Accept 3-part or 4-part section numbers: 5.2.1 OR 1.3.1.1
+SECTION_RE = re.compile(r"^\s*(\d+(?:\.\d+){2,3})\b")  # {2,3} => 3 or 4 groups total
+
+def normalize_for_contains(s: str) -> str:
+    """
+    Make PDF text matching more tolerant:
+    - collapse whitespace
+    - casefold
+    - replace non-breaking spaces
+    """
+    if s is None:
+        return ""
+    s = s.replace("\u00A0", " ")
+    s = re.sub(r"\s+", " ", s).strip()
+    return s.casefold()
 
 def split_lines_preserve(page_text: str) -> List[str]:
     """
@@ -136,21 +152,26 @@ def split_lines_preserve(page_text: str) -> List[str]:
     Only strip trailing whitespace to avoid mangling code blocks and wraps.
     """
     lines = (page_text or "").splitlines()
-    # Keep blank lines out, but don't collapse internal spaces
-    return [ln.rstrip() for ln in lines if ln.strip()]
+    # keep blank lines out, but preserve internal spacing
+    return [ln.rstrip("\n\r") for ln in lines if ln.strip()]
 
-def find_requirement_line(pages_lines: List[List[str]], search_text: str) -> Optional[Tuple[int, int, str]]:
+def find_requirement_line(
+    pages_lines: List[List[str]],
+    search_text: str,
+    debug_id: str = ""
+) -> Optional[Tuple[int, int, str]]:
     """
-    Finds first occurrence of a line containing search_text (case-insensitive).
-    Returns (page_index, line_index, line_text) or None.
+    More tolerant line search: uses normalized contains.
     """
-    needle = (search_text or "").strip()
-    if not needle:
+    needle_raw = (search_text or "").strip()
+    if not needle_raw:
         return None
-    needle_cf = needle.casefold()
+
+    needle = normalize_for_contains(needle_raw)
+
     for pi, lines in enumerate(pages_lines):
         for li, ln in enumerate(lines):
-            if needle_cf in ln.casefold():
+            if needle in normalize_for_contains(ln):
                 return (pi, li, ln)
     return None
 
@@ -161,16 +182,17 @@ def extract_section_number(line: str) -> Optional[str]:
 def extract_audit_block(
     pages_lines: List[List[str]],
     start_page: int,
-    start_line: int
+    start_line: int,
+    debug_label: str = ""
 ) -> Optional[str]:
     """
-    Starting beneath the matched requirement line, scan forward for:
-      - 'Audit:' marker
-      - Capture everything after 'Audit:' until 'Remediation:' (exclusive)
-    Preserves newlines in the captured block.
+    Preserve newlines. Add logging for why capture might fail.
     """
     capturing = False
     out_lines: List[str] = []
+
+    audit_seen_at: Optional[Tuple[int, int]] = None
+    remediation_seen_at: Optional[Tuple[int, int]] = None
 
     for pi in range(start_page, len(pages_lines)):
         lines = pages_lines[pi]
@@ -180,19 +202,23 @@ def extract_audit_block(
             ln = lines[li]
 
             if not capturing:
-                m_a = re.search(r"\bAudit:\b", ln, flags=re.IGNORECASE)
+                # Be slightly more tolerant: allow "Audit :" as well
+                m_a = re.search(r"\bAudit\s*:\b", ln, flags=re.IGNORECASE)
                 if not m_a:
                     continue
 
                 capturing = True
-                # capture anything after "Audit:" on the same line
+                audit_seen_at = (pi, li)
+
                 after = ln[m_a.end():]
-                # if "Remediation:" appears on same line, stop immediately
-                m_r_same = re.search(r"\bRemediation:\b", after, flags=re.IGNORECASE)
+                m_r_same = re.search(r"\bRemediation\s*:\b", after, flags=re.IGNORECASE)
                 if m_r_same:
+                    remediation_seen_at = (pi, li)
                     piece = after[:m_r_same.start()].strip()
                     if piece:
                         out_lines.append(piece)
+                    logging.debug("[%s] Found Audit: and Remediation: on same line at p%d l%d",
+                                  debug_label, pi + 1, li + 1)
                     return "\n".join(out_lines).rstrip() or None
 
                 after = after.strip()
@@ -201,29 +227,113 @@ def extract_audit_block(
                 continue
 
             # capturing mode
-            m_r = re.search(r"\bRemediation:\b", ln, flags=re.IGNORECASE)
+            m_r = re.search(r"\bRemediation\s*:\b", ln, flags=re.IGNORECASE)
             if m_r:
+                remediation_seen_at = (pi, li)
                 before = ln[:m_r.start()].rstrip()
                 if before.strip():
                     out_lines.append(before)
+
+                logging.debug("[%s] Captured Audit block p%d l%d -> p%d l%d",
+                              debug_label,
+                              (audit_seen_at[0] + 1) if audit_seen_at else (start_page + 1),
+                              (audit_seen_at[1] + 1) if audit_seen_at else (start_line + 1),
+                              pi + 1, li + 1)
                 return "\n".join(out_lines).rstrip() or None
 
             out_lines.append(ln.rstrip())
 
-    return "\n".join(out_lines).rstrip() or None
+    # If we got here, we either never found Audit:, or found Audit: but never found Remediation:
+    if audit_seen_at and not remediation_seen_at:
+        logging.warning("[%s] Found Audit: at p%d l%d but never found Remediation: after it.",
+                        debug_label, audit_seen_at[0] + 1, audit_seen_at[1] + 1)
+        # Still return what we captured (better than nothing)
+        return "\n".join(out_lines).rstrip() or None
 
-def enrich_from_pdf(reqs: List[Requirement], pdf_path: str) -> None:
+    logging.warning("[%s] Did not find Audit: marker after requirement line.", debug_label)
+    return None
+
+def debug_context(pages_lines: List[List[str]], page_i: int, line_i: int, radius: int = 6) -> str:
+    """
+    Return a small snippet around a line for logging.
+    """
+    lines = pages_lines[page_i]
+    start = max(0, line_i - radius)
+    end = min(len(lines), line_i + radius + 1)
+    out = []
+    for idx in range(start, end):
+        prefix = ">>" if idx == line_i else "  "
+        out.append(f"{prefix} L{idx+1:04d}: {lines[idx]}")
+    return "\n".join(out)
+
+def count_marker_after(
+    pages_lines: List[List[str]],
+    start_page: int,
+    start_line: int,
+    marker_regex: str,
+    max_lines: int = 400
+) -> Optional[Tuple[int, int, str]]:
+    """
+    Scan forward up to max_lines to see if marker occurs at all after the requirement line.
+    Useful debug.
+    """
+    seen = 0
+    pat = re.compile(marker_regex, flags=re.IGNORECASE)
+    for pi in range(start_page, len(pages_lines)):
+        lines = pages_lines[pi]
+        li0 = start_line + 1 if pi == start_page else 0
+        for li in range(li0, len(lines)):
+            if pat.search(lines[li]):
+                return (pi, li, lines[li])
+            seen += 1
+            if seen >= max_lines:
+                return None
+    return None
+
+def enrich_from_pdf(reqs: List[Requirement], pdf_path: str, debug: bool = False) -> None:
     pages_text = extract_pdf_pages_text(pdf_path)
     pages_lines = [split_lines_preserve(t) for t in pages_text]
 
     for r in reqs:
-        hit = find_requirement_line(pages_lines, r.description)
+        label = f"{r.id} | {r.name}"
+
+        hit = find_requirement_line(pages_lines, r.description, debug_id=r.id)
+
         if not hit:
+            logging.warning("[%s] Requirement line NOT FOUND for search text: %r", label, r.description)
+            # Extra debug: try finding just "Ensure ..." first clause
+            short = r.description
+            # If the description is long, take first ~80 chars for a second attempt
+            if len(short) > 80:
+                short = short[:80]
+            hit2 = find_requirement_line(pages_lines, short, debug_id=r.id)
+            if hit2:
+                logging.warning("[%s] Found with SHORTENED search (%r). Consider searching by header text instead.",
+                                label, short)
+                if debug:
+                    pi, li, ln = hit2
+                    logging.debug("[%s] Context around shortened hit:\n%s", label, debug_context(pages_lines, pi, li))
             continue
 
         page_i, line_i, line_txt = hit
         r.section = extract_section_number(line_txt)
-        r.audit_info = extract_audit_block(pages_lines, page_i, line_i)
+
+        if debug:
+            logging.debug("[%s] Matched line at p%d l%d: %s", label, page_i + 1, line_i + 1, line_txt)
+            logging.debug("[%s] Context around match:\n%s", label, debug_context(pages_lines, page_i, line_i))
+
+            a = count_marker_after(pages_lines, page_i, line_i, r"\bAudit\s*:\b")
+            b = count_marker_after(pages_lines, page_i, line_i, r"\bRemediation\s*:\b")
+            if a:
+                logging.debug("[%s] Found Audit: later at p%d l%d: %s", label, a[0] + 1, a[1] + 1, a[2])
+            else:
+                logging.debug("[%s] Did NOT find Audit: within scan window after match.", label)
+            if b:
+                logging.debug("[%s] Found Remediation: later at p%d l%d: %s", label, b[0] + 1, b[1] + 1, b[2])
+            else:
+                logging.debug("[%s] Did NOT find Remediation: within scan window after match.", label)
+
+        r.audit_info = extract_audit_block(pages_lines, page_i, line_i, debug_label=label)
 
 # --- Output ---
 def write_json(reqs: List[Requirement], out_json: str) -> None:
@@ -264,12 +374,27 @@ def main() -> int:
     ap.add_argument("--pdf", required=True, help="PDF file to search for requirement lines and extract Audit: blocks")
     ap.add_argument("--out-json", default="output.json", help="Output JSON filename (default: output.json)")
     ap.add_argument("--out-csv", default="output.csv", help="Output CSV filename (default: output.csv)")
+    ap.add_argument("--debug", action="store_true", help="Enable debug logging")
+    ap.add_argument("--log-file", default="", help="Optional log file path (default: stderr)")
     args = ap.parse_args()
 
     doc1 = read_doc1(args.doc1)
     doc2 = read_doc2(args.doc2)
     reqs = correlate(doc1, doc2)
 
+    if args.debug:
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format="%(levelname)s %(message)s",
+            filename=(args.log_file or None),
+        )
+    else:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(levelname)s %(message)s",
+            filename=(args.log_file or None),
+        )
+    
     if not reqs:
         print("No correlated requirements found (no matching Name values).", file=sys.stderr)
 
