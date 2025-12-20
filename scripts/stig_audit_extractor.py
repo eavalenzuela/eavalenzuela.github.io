@@ -131,7 +131,9 @@ def correlate(doc1: Dict[str, Dict[str, str]], doc2: Dict[str, Dict[str, str]]) 
 
 # --- PDF searching / extraction ---
 # Accept 3-part or 4-part section numbers: 5.2.1 OR 1.3.1.1
-SECTION_RE = re.compile(r"^\s*(\d+(?:\.\d+){2,3})\b")  # {2,3} => 3 or 4 groups total
+AUDIT_RE = re.compile(r"(?i)\bAudit\s*:")          # <-- no trailing \b
+REMEDIATION_RE = re.compile(r"(?i)\bRemediation\s*:")  # <-- no trailing \b
+SECTION_RE = re.compile(r"^\s*(\d+(?:\.\d+){2,3})\b")
 
 def normalize_for_contains(s: str) -> str:
     """
@@ -183,16 +185,35 @@ def extract_audit_block(
     pages_lines: List[List[str]],
     start_page: int,
     start_line: int,
-    debug_label: str = ""
+    debug_label: str = "",
+    debug_window_lines: int = 40,
 ) -> Optional[str]:
     """
-    Preserve newlines. Add logging for why capture might fail.
+    Scan forward (starting below the requirement title line):
+      - Find 'Audit:' marker
+      - Capture everything until 'Remediation:' marker
+    Preserves newlines.
+    Adds debug logs to explain WHY it didn't capture.
     """
     capturing = False
     out_lines: List[str] = []
+    audit_loc: Optional[Tuple[int, int]] = None
 
-    audit_seen_at: Optional[Tuple[int, int]] = None
-    remediation_seen_at: Optional[Tuple[int, int]] = None
+    # Debug: log a small window of lines after the requirement header
+    if debug_window_lines > 0:
+        preview = []
+        remaining = debug_window_lines
+        for pi in range(start_page, len(pages_lines)):
+            li0 = start_line + 1 if pi == start_page else 0
+            for li in range(li0, len(pages_lines[pi])):
+                preview.append(f"p{pi+1} l{li+1}: {pages_lines[pi][li]}")
+                remaining -= 1
+                if remaining <= 0:
+                    break
+            if remaining <= 0:
+                break
+        logging.debug("[%s] Preview lines after requirement header:\n%s",
+                      debug_label, "\n".join(preview))
 
     for pi in range(start_page, len(pages_lines)):
         lines = pages_lines[pi]
@@ -202,55 +223,48 @@ def extract_audit_block(
             ln = lines[li]
 
             if not capturing:
-                # Be slightly more tolerant: allow "Audit :" as well
-                m_a = re.search(r"\bAudit\s*:\b", ln, flags=re.IGNORECASE)
+                m_a = AUDIT_RE.search(ln)
                 if not m_a:
                     continue
 
                 capturing = True
-                audit_seen_at = (pi, li)
+                audit_loc = (pi, li)
+                # capture anything after "Audit:" on the same line
+                after = ln[m_a.end():].strip()
 
-                after = ln[m_a.end():]
-                m_r_same = re.search(r"\bRemediation\s*:\b", after, flags=re.IGNORECASE)
+                # If Remediation is on same line (rare), stop immediately
+                m_r_same = REMEDIATION_RE.search(after)
                 if m_r_same:
-                    remediation_seen_at = (pi, li)
-                    piece = after[:m_r_same.start()].strip()
-                    if piece:
-                        out_lines.append(piece)
-                    logging.debug("[%s] Found Audit: and Remediation: on same line at p%d l%d",
-                                  debug_label, pi + 1, li + 1)
+                    before = after[:m_r_same.start()].strip()
+                    if before:
+                        out_lines.append(before)
+                    logging.debug("[%s] Audit and Remediation on same line at p%d l%d",
+                                  debug_label, pi+1, li+1)
                     return "\n".join(out_lines).rstrip() or None
 
-                after = after.strip()
                 if after:
                     out_lines.append(after)
                 continue
 
-            # capturing mode
-            m_r = re.search(r"\bRemediation\s*:\b", ln, flags=re.IGNORECASE)
+            # capturing
+            m_r = REMEDIATION_RE.search(ln)
             if m_r:
-                remediation_seen_at = (pi, li)
                 before = ln[:m_r.start()].rstrip()
                 if before.strip():
                     out_lines.append(before)
-
-                logging.debug("[%s] Captured Audit block p%d l%d -> p%d l%d",
-                              debug_label,
-                              (audit_seen_at[0] + 1) if audit_seen_at else (start_page + 1),
-                              (audit_seen_at[1] + 1) if audit_seen_at else (start_line + 1),
-                              pi + 1, li + 1)
+                logging.debug("[%s] Captured Audit block from p%d l%d to p%d l%d",
+                              debug_label, audit_loc[0]+1, audit_loc[1]+1, pi+1, li+1)
                 return "\n".join(out_lines).rstrip() or None
 
             out_lines.append(ln.rstrip())
 
-    # If we got here, we either never found Audit:, or found Audit: but never found Remediation:
-    if audit_seen_at and not remediation_seen_at:
-        logging.warning("[%s] Found Audit: at p%d l%d but never found Remediation: after it.",
-                        debug_label, audit_seen_at[0] + 1, audit_seen_at[1] + 1)
-        # Still return what we captured (better than nothing)
+    # If we found Audit but not Remediation, return what we got (and warn)
+    if audit_loc:
+        logging.warning("[%s] Found Audit: at p%d l%d but did not find Remediation:. Returning partial audit block.",
+                        debug_label, audit_loc[0]+1, audit_loc[1]+1)
         return "\n".join(out_lines).rstrip() or None
 
-    logging.warning("[%s] Did not find Audit: marker after requirement line.", debug_label)
+    logging.warning("[%s] Did not find Audit: marker after requirement header.", debug_label)
     return None
 
 def debug_context(pages_lines: List[List[str]], page_i: int, line_i: int, radius: int = 6) -> str:
