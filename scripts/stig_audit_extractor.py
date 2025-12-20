@@ -319,7 +319,7 @@ def enrich_from_pdf(reqs: List[Requirement], pdf_path: str, debug: bool = False)
     for r in reqs:
         label = f"{r.id} | {r.name}"
 
-        hit = find_requirement_line(pages_lines, r.description, debug_id=r.id)
+        hit = find_requirement_line(pages_lines, r.description, r.id)
 
         if not hit:
             logging.warning("[%s] Requirement line NOT FOUND for search text: %r", label, r.description)
@@ -328,7 +328,7 @@ def enrich_from_pdf(reqs: List[Requirement], pdf_path: str, debug: bool = False)
             # If the description is long, take first ~80 chars for a second attempt
             if len(short) > 80:
                 short = short[:80]
-            hit2 = find_requirement_line(pages_lines, short, debug_id=r.id)
+            hit2 = find_requirement_line(pages_lines, short, r.id)
             if hit2:
                 logging.warning("[%s] Found with SHORTENED search (%r). Consider searching by header text instead.",
                                 label, short)
