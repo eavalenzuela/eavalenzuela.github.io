@@ -10,6 +10,8 @@ layout: default
         {% assign date_format = site.minima.date_format | default: "%b %-d, %Y" %}
         {{ page.date | date: date_format }}
       </time>
+      {% assign words = content | number_of_words %}
+      • {{ words | divided_by: 200 | at_least: 1 }} min read
       {% if page.author %}
         • <span itemprop="author" itemscope itemtype="http://schema.org/Person"><span class="p-author h-card" itemprop="name">{{ page.author }}</span></span>
       {% endif %}</p>
@@ -18,6 +20,19 @@ layout: default
   <div class="post-content e-content" itemprop="articleBody">
     {{ content }}
   </div>
+
+  <nav class="post-nav" style="display: flex; justify-content: space-between; gap: 1em; margin-top: 2em;">
+    <span>
+      {% if page.previous %}
+        &larr; <a href="{{ page.previous.url | relative_url }}">{{ page.previous.title | escape }}</a>
+      {% endif %}
+    </span>
+    <span>
+      {% if page.next %}
+        <a href="{{ page.next.url | relative_url }}">{{ page.next.title | escape }}</a> &rarr;
+      {% endif %}
+    </span>
+  </nav>
 
   {% if site.disqus.shortname %}
     {% include disqus_comments.html %}

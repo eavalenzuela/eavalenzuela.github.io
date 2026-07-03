@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Scapy_RPC_Layer
+title: Scapy RPC Layer
 ---
 
 # RPC Layer for Scapy
@@ -48,7 +48,7 @@ load_layers = ["l2", "inet", "dhcp", "dns", "dot11", "gprs",
                    "sctp", "vrrp", "ipsec", "lltd", "vxlan", "eap", "rpc"]
 ```
 
-At this point, it is ready for use in scapy(although very ugly and finnicky).
+At this point, it is ready for use in scapy(although very ugly and finicky).
 
 ## Testing the Layer
 
@@ -56,25 +56,25 @@ Firing up python, the augmented scapy can be imported from the folder above /sca
 
 You can then begin constructing basic RPCCall packets like so:
 
-![pkt_build]({{site.url}}/assets/images/pkt_build.png)
+![pkt_build]({{ '/assets/images/pkt_build.png' | relative_url }})
 
 Note that the Ether layer is loaded, but it left for automatic initialization by scapy, and no fields are specified.
 
-The request can then be sent, and a reponse listened for. Because the Ether layer was used, sendp/srp/srp1 must be used for sending rather than send/sr/sr1.
+The request can then be sent, and a response listened for. Because the Ether layer was used, sendp/srp/srp1 must be used for sending rather than send/sr/sr1.
 
-![pkt_sr]({{site.url}}/assets/images/pkt_sr.png)
+![pkt_sr]({{ '/assets/images/pkt_sr.png' | relative_url }})
 
-We can see that a response was recieved, even if it's not easy to tell what the response means.
+We can see that a response was received, even if it's not easy to tell what the response means.
 
-Looking in Wireshark, we can see that the sent packet was indeed recognized as a RPC portmap call, and that the response recieved is an RPC portmap reply.
+Looking in Wireshark, we can see that the sent packet was indeed recognized as a RPC portmap call, and that the response received is an RPC portmap reply.
 
-![ws_pkts]({{site.url}}/assets/images/ws_pkts.png)
+![ws_pkts]({{ '/assets/images/ws_pkts.png' | relative_url }})
 
 We can then further dive into the reply, and see what services the portmap service notified us of.
 
-![ws_reply]({{site.url}}/assets/images/ws_reply.png)
+![ws_reply]({{ '/assets/images/ws_reply.png' | relative_url }})
 
-## Final Thoughs
+## Final Thoughts
 
 This is by no means a complete or even truly usable layer, other than for the specific use-case it was built for(testing portmapper calls from specific source ports).
 

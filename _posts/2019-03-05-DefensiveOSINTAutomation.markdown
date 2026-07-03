@@ -29,7 +29,7 @@ The initial modules I built were:
 * Paste-site (specifically, Pastebin for now) monitoring
 * Subdomain monitoring
 
-Subdomain monitoring is accomplished with SecurityTrail's subdomain API endpoint, and is just intended to give us a head's-up if new subdomain DNS records are created.
+Subdomain monitoring is accomplished with SecurityTrail's subdomain API endpoint, and is just intended to give us a heads-up if new subdomain DNS records are created.
 
 Pastebin monitoring uses Pastebin's scraping API. It checks the content of each paste against a list of keywords and regex patterns, and performs actions based on per-expression settings. For example, certain keywords (e.g. the company name) will always be downloaded, so they can be reviewed without worrying about the paste being removed. In addition to company-related queries, several general queries are useful, to keep your finger on the pulse.
 
@@ -59,7 +59,7 @@ Paired with a list of 'search phrase + risk rating' pairs fed to it, you have ch
 
 To store the gathered info, I set up a simple mysql database on a t2.small instance. I initially set this up with RDS, but realized it was overkill for the miniscule volume of data I'm storing.
 
-GitHub Monitr columns:
+GitHub Monitor columns:
 
 * repo_name
 * owner_account

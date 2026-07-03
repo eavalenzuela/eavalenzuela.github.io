@@ -1,13 +1,13 @@
 ---
 layout: post
-title: Security_Tool_Projects
+title: Security Tool Projects
 ---
 
 Over the past 4 months, I've worked on a number of security tools for work, mainly focused around packet-level functions.
 
 #### asker.py
 
-I built this to be a counterpart to responder.py, but for now it uses only LLMNR, and not NBT-NS or MDNS. It's purpose is to occasionally serve out fake LLMNR requests, using a user-supplied list of known-fake names(so the list should be populated with 'mis-typings' of actual resource names in your environment).
+I built this to be a counterpart to responder.py, but for now it uses only LLMNR, and not NBT-NS or MDNS. Its purpose is to occasionally serve out fake LLMNR requests, using a user-supplied list of known-fake names(so the list should be populated with 'mis-typings' of actual resource names in your environment).
 I have tested this against responder, and it does in fact cause responder to attempt a hijack, which can then be logged and alerted-on.
 
 #### scapy RPC layer

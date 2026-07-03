@@ -1,0 +1,35 @@
+# Entries for the /projects/ page. Each entry needs: name, url, description.
+# Optional: post (site-relative URL of a related write-up).
+
+- name: asker
+  url: https://github.com/eavalenzuela/asker
+  description: >-
+    A blue-team counterpart to Responder — periodically emits decoy LLMNR
+    queries using fake-but-plausible names so any active poisoner on the
+    network reveals itself by attempting a hijack.
+  post: /2019/03/27/Asker.html
+
+- name: scapy_RPC_layer
+  url: https://github.com/eavalenzuela/scapy_RPC_layer
+  description: >-
+    A minimal custom scapy layer for building and sending structured RPC
+    (portmap) calls, including from arbitrary source ports.
+  post: /2018/04/26/ScapyRPCLayer.html
+
+- name: exwin
+  url: https://github.com/eavalenzuela/exwin
+  description: >-
+    An offline-first Windows game manager for Linux — installs and manages
+    GOG offline installers, Wine prefixes, and game metadata from a single
+    launcher.
+
+- name: GRCen
+  url: https://github.com/eavalenzuela/GRCen
+  description: >-
+    An open-source Governance, Risk, and Compliance platform aimed at small
+    orgs that can't justify commercial GRC suites.
+
+- name: menace_savegame_editor
+  url: https://github.com/eavalenzuela/menace_savegame_editor
+  description: >-
+    A savegame editor for the game Menace.

@@ -1,13 +1,13 @@
 ---
 layout: post
-title: Intro_to_Wireshark
+title: Intro to Wireshark
 ---
 
 # Wireshark
 
-[Wireshark](https://www.wireshark.org/)(and its accompanying tools) is an application for capturing, reassembling, and displaying network traffic. Its power(when compared with other pcap tools) lies in its structuring of packet information into heirarchical and relatively intuitive groupings of data(figure below), as well as giving a color-coded, sequential view of the traffic.
+[Wireshark](https://www.wireshark.org/)(and its accompanying tools) is an application for capturing, reassembling, and displaying network traffic. Its power(when compared with other pcap tools) lies in its structuring of packet information into hierarchical and relatively intuitive groupings of data(figure below), as well as giving a color-coded, sequential view of the traffic.
 
-![ws_dsets]({{site.url}}/assets/images/ws_dsets.png)
+![ws_dsets]({{ '/assets/images/ws_dsets.png' | relative_url }})
 
 Wireshark can be used to extract data directly from HTTP traffic, metadata from HTTPS traffic, and to identify places where traffic is being blocked or failing. It can also be used to diagnose certificate issues, as certificate error information is often not displayed by programs using SSL/TLS encryption.
 
@@ -15,63 +15,63 @@ Wireshark can be used to extract data directly from HTTP traffic, metadata from 
 
 Upon launching Wireshark, you will be presented with all the network interfaces on your computer which Wireshark can capture traffic on.
 
-![ws_interfaceselection]({{site.url}}/assets/images/ws_interfaceselection.png)
+![ws_interfaceselection]({{ '/assets/images/ws_interfaceselection.png' | relative_url }})
 
 After selecting one(```Wi-Fi: en0``` in this case), Wireshark will switch to the main viewing pane, and traffic will begin to populate in(assuming any is moving). Note that on WiFi, you will need to put the card into "monitor mode" in order to see packets sent to other computers. This is because your NIC automatically filters out packets not sent to that NIC's MAC before passing it up the stack to your applications when not in monitor mode.
 
-![ws_capturestart]({{site.url}}/assets/images/ws_capturestart.png)
+![ws_capturestart]({{ '/assets/images/ws_capturestart.png' | relative_url }})
 
 ### Filters and Streams
 
 When viewing traffic, especially in monitor mode, there will be too many interleaved streams at play for you to sort through efficiently. This is where filters and stream-traces are useful, as they allow you to reduce the view to either a specific interaction:
 
-![ws_filter]({{site.url}}/assets/images/ws_filter.png)
+![ws_filter]({{ '/assets/images/ws_filter.png' | relative_url }})
 
 or by streams, which you can then iterate through manually:
 
-![ws_streamfilter1]({{site.url}}/assets/images/ws_streamfilter1.png)
+![ws_streamfilter1]({{ '/assets/images/ws_streamfilter1.png' | relative_url }})
 
-![ws_streamfilter2]({{site.url}}/assets/images/ws_streamfilter2.png)
+![ws_streamfilter2]({{ '/assets/images/ws_streamfilter2.png' | relative_url }})
 
 You can either create these filters by typing in the filter bar manually, or by right-clicking on the aspect of a packet you wish to filter on, and applying that as a filter.
 
-![ws_createfilter]({{site.url}}/assets/images/ws_createfilter.png)
+![ws_createfilter]({{ '/assets/images/ws_createfilter.png' | relative_url }})
 
 ____
 
 ## HTTP/S Session Analysis
 
-For this example, we'll begin with a packet capture which contains a simple webbrowser connection to a webpage.
+For this example, we'll begin with a packet capture which contains a simple web browser connection to a webpage.
 
 Here is our starting, unfiltered view:
 
-![ws_fullview]({{site.url}}/assets/images/ws_fullview.png)
+![ws_fullview]({{ '/assets/images/ws_fullview.png' | relative_url }})
 
 In this example, we'll assume we know the IP address of the server we're wanting to see the traffic to/from: ```52.9.87.221```, an AWS server based on the IP.
 
 We'll apply that as a filter(*not* direction-specific e.g. ```ip.dst``` for destination only) as we saw earlier:
 
-![ws_filter]({{site.url}}/assets/images/ws_filter.png)
+![ws_filter]({{ '/assets/images/ws_filter.png' | relative_url }})
 
 There is a lot of traffic, but if we just right-click on the first packet and select ```Follow > TCP Stream```...
 
-![ws_followstream]({{site.url}}/assets/images/ws_followstream.png)
+![ws_followstream]({{ '/assets/images/ws_followstream.png' | relative_url }})
 
 we'll get a popout window with a view of the ASCII text of the HTTP traffic in that TCP stream:
 
-![ws_httpredir]({{site.url}}/assets/images/ws_httpredir.png)
+![ws_httpredir]({{ '/assets/images/ws_httpredir.png' | relative_url }})
 
 If we go back to the traffic view pane, we can pick out the packets that make up this exchange fairly easily:
 
-![ws_redirpackets]({{site.url}}/assets/images/ws_redirpackets.png)
+![ws_redirpackets]({{ '/assets/images/ws_redirpackets.png' | relative_url }})
 
 and if we click on packet #358(far left column is the packet number), we can see the HTTP request in the packet itself.
 
-![ws_httpget]({{site.url}}/assets/images/ws_httpget.png)
+![ws_httpget]({{ '/assets/images/ws_httpget.png' | relative_url }})
 
 Do the same for packet #360, and we can see the 301 Redirect response.
 
-![ws_httpresponse]({{site.url}}/assets/images/ws_httpresponse.png)
+![ws_httpresponse]({{ '/assets/images/ws_httpresponse.png' | relative_url }})
 
 As we can see, the request for ```http://eevn.io``` is being redirected to ```https://eevn.io```.
 
@@ -81,9 +81,9 @@ At this point the conversation is going to be encrypted, but there is still a lo
 
 First, let's take a look at the basic anatomy of a TLS handshake:
 
-![ws_tlshandshake]({{site.url}}/assets/images/ws_tlshandshake.png)
+![ws_tlshandshake]({{ '/assets/images/ws_tlshandshake.png' | relative_url }})
 
-More information can be found [here](http://blog.catchpoint.com/2017/05/12/dissecting-tls-using-wireshark/), but the basic gist is that
+More information can be found [here](https://web.archive.org/web/2018/http://blog.catchpoint.com/2017/05/12/dissecting-tls-using-wireshark/), but the basic gist is that
 1. The client sends the server a "hello" packet with
   * its list of available cipher suites
 2. The server replies with
@@ -104,7 +104,7 @@ Two important things to keep in mind here:
 
 If we look at this section following the plaintext HTTP packets performing the redirect(packets #358-361), we'll see this:
 
-![ws_http2ssl]({{site.url}}/assets/images/ws_http2ssl.png)
+![ws_http2ssl]({{ '/assets/images/ws_http2ssl.png' | relative_url }})
 
 #### What's happening, packet-by-packet
 
@@ -132,7 +132,7 @@ We'll use ``"_A"(and highlighting) to designate conversation 1``, and "\_B" to d
 
 **372_B** : Server ACKs second "Hello"
 
-**373_A** : ``Server sends "Hello" in reponse to client's first "Hello", cipher of choice``
+**373_A** : ``Server sends "Hello" in response to client's first "Hello", cipher of choice``
 
 **374_A** : ``Server sends SSL cert``
 
@@ -144,11 +144,11 @@ We'll use ``"_A"(and highlighting) to designate conversation 1``, and "\_B" to d
 
 **378_A** : ``Client sends keys, cipher acknowledgement, and encrypted message to verify SSL working``
 
-**379_B** : Server sends "Hello" in reponse to client's second "Hello", cipher of choice
+**379_B** : Server sends "Hello" in response to client's second "Hello", cipher of choice
 
 **380_B** : Server sends SSL cert
 
-![ws_tlshs2appdata]({{site.url}}/assets/images/ws_tlshs2appdata.png)
+![ws_tlshs2appdata]({{ '/assets/images/ws_tlshs2appdata.png' | relative_url }})
 
 **381_B** : Server sends key. Server Hello is complete.
 
